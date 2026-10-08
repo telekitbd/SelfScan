@@ -37,6 +37,8 @@
         </activity>
 
         <activity android:name=".WebActivity" android:exported="false" />
+        <activity android:name=".NidActivity" android:exported="false" />
+        <activity android:name=".TextActivity" android:exported="false" />
 
         <activity
             android:name=".ScanTriggerActivity"

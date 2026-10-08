@@ -187,8 +187,9 @@ class MainActivity : AppCompatActivity() {
         try {
             scanner.process(InputImage.fromFilePath(this, uri))
                 .addOnSuccessListener { list ->
-                    val v = list.firstOrNull()?.rawValue
-                    if (v != null) onResult(v) else info.text = "এই ছবিতে কোনো QR পাওয়া যায়নি"
+                    val b = list.firstOrNull()
+                    val v = b?.rawValue
+                    if (v != null) onResult(v, b.format) else info.text = "এই ছবিতে কোনো QR পাওয়া যায়নি"
                 }
                 .addOnFailureListener { info.text = "ছবি স্ক্যান করা যায়নি" }
         } catch (e: Exception) {
@@ -225,25 +226,14 @@ class MainActivity : AppCompatActivity() {
         val media = proxy.image
         if (media == null || busy) { proxy.close(); return }
         scanner.process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
-            .addOnSuccessListener { list -> list.firstOrNull()?.rawValue?.let(::onResult) }
+            .addOnSuccessListener { list -> list.firstOrNull()?.let { b -> b.rawValue?.let { onResult(it, b.format) } } }
             .addOnCompleteListener { proxy.close() }
     }
 
-    // QR এর ধরন বলে (গোপন অংশ দেখায় না)
-    private fun describe(t: String): String {
-        val s = t.trim()
-        return when {
-            s.startsWith("app:", true) -> "অ্যাপ লিংক"
-            s.startsWith("http", true) -> "ওয়েব লিংক"
-            else -> Regex("^([a-zA-Z][a-zA-Z0-9+.\\-]*):").find(s)?.groupValues?.get(1)?.let { "$it:// লিংক" } ?: "সাধারণ লেখা"
-        }
-    }
-
-    private fun onResult(text: String) {
+    private fun onResult(text: String, format: Int = -1) {
         if (busy) return
         busy = true
-        info.text = "QR পাওয়া গেছে (${describe(text)}), খোলার চেষ্টা চলছে…"
-        ScanRouter.handle(this, text)
+        ScanRouter.handle(this, text, format)
         handler.postDelayed({ busy = false }, 2500)
     }
 }

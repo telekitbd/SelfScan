@@ -109,9 +109,9 @@ class ScreenScanService : Service() {
     private fun scanFromOverlay() {
         overlay?.visibility = View.INVISIBLE   // বাটনটা ছবিতে না আসার জন্য লুকানো
         h.postDelayed({
-            capture { text ->
+            capture { text, fmt ->
                 overlay?.visibility = View.VISIBLE
-                if (text != null) ScanRouter.handle(this, text)
+                if (text != null) ScanRouter.handle(this, text, fmt)
                 else Toast.makeText(this, "স্ক্রিনে QR পাওয়া যায়নি", Toast.LENGTH_LONG).show()
             }
         }, 500)
@@ -135,19 +135,19 @@ class ScreenScanService : Service() {
         else startForeground(1, n)
     }
 
-    fun capture(cb: (String?) -> Unit) {
+    fun capture(cb: (String?, Int) -> Unit) {
         val img = last
-        if (img == null) { cb(null); return }
+        if (img == null) { cb(null, -1); return }
         val bmp = try {
             val pl = img.planes[0]
             val w = pl.rowStride / pl.pixelStride
             val full = Bitmap.createBitmap(w, img.height, Bitmap.Config.ARGB_8888)
             full.copyPixelsFromBuffer(pl.buffer)
             Bitmap.createBitmap(full, 0, 0, img.width, img.height)
-        } catch (e: Exception) { cb(null); return }
+        } catch (e: Exception) { cb(null, -1); return }
         scanner.process(InputImage.fromBitmap(bmp, 0))
-            .addOnSuccessListener { cb(it.firstOrNull()?.rawValue) }
-            .addOnFailureListener { cb(null) }
+            .addOnSuccessListener { val b = it.firstOrNull(); cb(b?.rawValue, b?.format ?: -1) }
+            .addOnFailureListener { cb(null, -1) }
     }
 
     private fun cleanup() {

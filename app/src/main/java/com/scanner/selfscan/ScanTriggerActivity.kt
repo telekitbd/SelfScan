@@ -16,8 +16,8 @@ class ScanTriggerActivity : Activity() {
                 Toast.makeText(this, "স্ক্রিন স্ক্যান চালু নেই, অ্যাপ থেকে চালু করুন", Toast.LENGTH_LONG).show()
                 finish()
             } else {
-                s.capture { text ->
-                    if (text != null) ScanRouter.handle(this, text)
+                s.capture { text, fmt ->
+                    if (text != null) ScanRouter.handle(this, text, fmt)
                     else Toast.makeText(this, "স্ক্রিনে QR পাওয়া যায়নি", Toast.LENGTH_LONG).show()
                     finish()
                 }

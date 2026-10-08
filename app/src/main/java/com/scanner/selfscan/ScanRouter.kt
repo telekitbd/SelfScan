@@ -23,17 +23,43 @@ object ScanRouter {
     private val PKG = Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$")
     private val SCHEME = Regex("^[a-zA-Z][a-zA-Z0-9+.\\-]*:")
 
-    fun handle(ctx: Context, raw: String) {
+    fun handle(ctx: Context, raw: String, format: Int = -1) {
         val t = raw.trim()
         when {
             t.startsWith("app:", true) -> openApp(ctx, t)
             t.startsWith("http://", true) || t.startsWith("https://", true) ->
                 if (isApk(t)) downloadApk(ctx, t) else openWeb(ctx, t)
             t.startsWith("intent:", true) -> openIntentUri(ctx, t)
+            NidParser.looksLikeNid(t, format) -> openNid(ctx, t)
             // otpauth://, fb://, market://, tel: ইত্যাদি: সেই লিংক যে অ্যাপ হ্যান্ডেল করে সেটাই খুলবে
-            SCHEME.containsMatchIn(t) && !t.contains(" ") -> view(ctx, t)
-            else -> toast(ctx, t)
+            SCHEME.containsMatchIn(t) && !t.contains(" ") -> openOther(ctx, t)
+            else -> openText(ctx, t)
         }
+    }
+
+    private fun openNid(ctx: Context, t: String) {
+        ctx.startActivity(Intent(ctx, NidActivity::class.java).putExtra("raw", t).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // লিংক না থাকলে সাধারণ লেখা অ্যাপের ভেতরে আলাদা স্ক্রিনে দেখায় (কপি করার বাটনসহ)
+    fun openText(ctx: Context, t: String) {
+        ctx.startActivity(Intent(ctx, TextActivity::class.java).putExtra("text", t).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    private fun tryView(ctx: Context, url: String): Boolean = try {
+        ctx.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        true
+    } catch (e: ActivityNotFoundException) { false }
+
+    // অন্য স্কিমের লিংক: হ্যান্ডেল করার অ্যাপ থাকলে সেখানে, না থাকলে লেখা হিসেবে দেখায়
+    private fun openOther(ctx: Context, t: String) {
+        if (tryView(ctx, t)) return
+        val sc = Uri.parse(t).scheme ?: ""
+        if (sc.startsWith("otpauth", true)) toast(ctx, notHandled(t)) else openText(ctx, t)
     }
 
     private fun isApk(url: String) = Uri.parse(url).path?.endsWith(".apk", true) == true
