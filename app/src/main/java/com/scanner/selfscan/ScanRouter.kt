@@ -103,8 +103,15 @@ object ScanRouter {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (e: ActivityNotFoundException) {
-            toast(ctx, "এই লিংক খোলার মতো অ্যাপ নেই")
+            toast(ctx, notHandled(url))
         }
+    }
+
+    private fun notHandled(url: String): String {
+        val sc = Uri.parse(url).scheme ?: ""
+        return if (sc.equals("otpauth-migration", true))
+            "এই QR ($sc://) খোলার মতো কোনো অ্যাপ ফোনে নেই। Google Authenticator-এর এক্সপোর্ট QR সাধারণত ওই অ্যাপের নিজের Import অপশন থেকে নিতে হয়।"
+        else "এই লিংক ($sc://) খোলার মতো কোনো অ্যাপ ফোনে নেই"
     }
 
     fun downloadApk(ctx: Context, url: String) {
