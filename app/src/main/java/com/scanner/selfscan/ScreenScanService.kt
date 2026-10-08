@@ -19,6 +19,13 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.Toast
 import androidx.core.content.IntentCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
@@ -35,6 +42,8 @@ class ScreenScanService : Service() {
     private var reader: ImageReader? = null
     private var display: VirtualDisplay? = null
     private var last: Image? = null
+    private var overlay: Button? = null
+    private var wm: WindowManager? = null
     private val h = Handler(Looper.getMainLooper())
     private val scanner by lazy { BarcodeScanning.getClient() }
 
@@ -68,7 +77,40 @@ class ScreenScanService : Service() {
         reader = r
         projection = p
         instance = this
+        addOverlay()
+        Toast.makeText(this, "স্ক্রিন স্ক্যান চালু। QR খুলে ভাসমান 'স্ক্যান' বাটন চাপুন (বন্ধ করতে বাটনে লং প্রেস)", Toast.LENGTH_LONG).show()
         return START_NOT_STICKY
+    }
+
+    // অন্য অ্যাপের উপরে ভাসমান বাটন: চাপলে স্ক্রিনের QR স্ক্যান হয়
+    private fun addOverlay() {
+        if (!Settings.canDrawOverlays(this)) return
+        val w = getSystemService(WINDOW_SERVICE) as WindowManager
+        val b = Button(this).apply {
+            text = "স্ক্যান"
+            setOnClickListener { scanFromOverlay() }
+            setOnLongClickListener { cleanup(); stopSelf(); true }
+        }
+        val lp = WindowManager.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        w.addView(b, lp)
+        wm = w
+        overlay = b
+    }
+
+    private fun scanFromOverlay() {
+        overlay?.visibility = View.INVISIBLE   // বাটনটা ছবিতে না আসার জন্য লুকানো
+        h.postDelayed({
+            capture { text ->
+                overlay?.visibility = View.VISIBLE
+                if (text != null) ScanRouter.handle(this, text)
+                else Toast.makeText(this, "স্ক্রিনে QR পাওয়া যায়নি", Toast.LENGTH_LONG).show()
+            }
+        }, 500)
     }
 
     private fun goForeground() {
@@ -106,6 +148,8 @@ class ScreenScanService : Service() {
 
     private fun cleanup() {
         instance = null
+        overlay?.let { try { wm?.removeView(it) } catch (_: Exception) {} }
+        overlay = null
         last?.close(); last = null
         display?.release(); display = null
         reader?.close(); reader = null

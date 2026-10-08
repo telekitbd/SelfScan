@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -80,8 +81,13 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             addView(info, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(btn("১. স্ক্রিন স্ক্যান চালু করুন (সরাসরি স্ক্রিন থেকে)") {
-                val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                projection.launch(mpm.createScreenCaptureIntent())
+                if (!Settings.canDrawOverlays(this@MainActivity)) {
+                    info.text = "প্রথমে 'অন্য অ্যাপের উপরে দেখানো' অনুমতি চালু করুন, তারপর ফিরে এসে আবার এই বাটন চাপুন"
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                } else {
+                    val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    projection.launch(mpm.createScreenCaptureIntent())
+                }
             })
             addView(btn("২. গ্যালারি/স্ক্রিনশট থেকে স্ক্যান") { pickImage.launch("image/*") })
             addView(btn("৩. ক্যামেরা দিয়ে স্ক্যান (ঐচ্ছিক)") {
