@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -11,10 +14,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,10 +32,15 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
+import androidx.core.view.WindowCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 
 class MainActivity : AppCompatActivity() {
+
+    private val PURPLE = 0xFF4C1D95.toInt()
+    private val SOFT = 0xFFF5F3FF.toInt()
+    private val BORDER = 0xFFDDD6FE.toInt()
 
     private lateinit var preview: PreviewView
     private lateinit var info: TextView
@@ -53,34 +62,79 @@ class MainActivity : AppCompatActivity() {
                 this,
                 Intent(this, ScreenScanService::class.java).putExtra("code", r.resultCode).putExtra("data", data)
             )
-            moveTaskToBack(true) // এখন QR খোলা অ্যাপ/ব্রাউজারে গিয়ে নোটিফিকেশনের "স্ক্যান" চাপুন
+            moveTaskToBack(true) // এখন QR খোলা অ্যাপ/ব্রাউজারে গিয়ে ভাসমান "স্ক্যান" বাটন চাপুন
         }
     }
 
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun shape(color: Int, radius: Int, stroke: Int? = null) = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = dp(radius).toFloat()
+        if (stroke != null) setStroke(dp(1), stroke)
+    }
+
+    private fun text(t: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+        text = t
+        textSize = size
+        setTextColor(color)
+        if (bold) typeface = Typeface.DEFAULT_BOLD
+    }
+
+    private fun actionCard(title: String, sub: String, bg: Int, fg: Int, subColor: Int, stroke: Int?, onClick: () -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = shape(bg, 18, stroke)
+            setPadding(dp(18), dp(14), dp(18), dp(14))
+            addView(text(title, 17f, fg, true))
+            addView(text(sub, 13f, subColor).apply { setPadding(0, dp(2), 0, 0) })
+            isClickable = true
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pad = (16 * resources.displayMetrics.density).toInt()
-
-        info = TextView(this).apply {
-            textSize = 16f
-            setPadding(pad, pad, pad, pad)
-            text = "সেলফ স্ক্যান: ফোনের স্ক্রিনে বা গ্যালারিতে থাকা QR এখান থেকেই স্ক্যান হবে।"
+        window.statusBarColor = SOFT
+        window.navigationBarColor = SOFT
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
         }
+
+        val logo = ImageView(this).apply { setImageResource(R.drawable.logo_full) }
+        val titles = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+            addView(text("Self Scanner", 24f, PURPLE, true))
+            addView(text("স্ক্যান করুন, সরাসরি অ্যাপে যান", 13f, 0xFF6B7280.toInt()))
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(logo, LinearLayout.LayoutParams(dp(64), dp(64)))
+            addView(titles)
+        }
+
+        info = text("ফোনের স্ক্রিনে বা গ্যালারিতে থাকা QR এখান থেকেই স্ক্যান হবে।", 14f, 0xFF374151.toInt()).apply {
+            background = shape(Color.WHITE, 16, BORDER)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(20) }
+        }
+
         preview = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
             visibility = View.GONE
         }
 
-        fun btn(label: String, action: () -> Unit) = Button(this).apply {
-            text = label
-            setOnClickListener { action() }
-        }
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(info, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(btn("১. স্ক্রিন স্ক্যান চালু করুন (সরাসরি স্ক্রিন থেকে)") {
+            setBackgroundColor(SOFT)
+            setPadding(dp(20), dp(24), dp(20), dp(20))
+            addView(header)
+            addView(info)
+            addView(actionCard("স্ক্রিন স্ক্যান", "ফোনের স্ক্রিনে খোলা QR সরাসরি স্ক্যান", PURPLE, Color.WHITE, 0xFFDDD6FE.toInt(), null) {
                 if (!Settings.canDrawOverlays(this@MainActivity)) {
                     info.text = "প্রথমে 'অন্য অ্যাপের উপরে দেখানো' অনুমতি চালু করুন, তারপর ফিরে এসে আবার এই বাটন চাপুন"
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
@@ -89,15 +143,17 @@ class MainActivity : AppCompatActivity() {
                     projection.launch(mpm.createScreenCaptureIntent())
                 }
             })
-            addView(btn("২. গ্যালারি/স্ক্রিনশট থেকে স্ক্যান") { pickImage.launch("image/*") })
-            addView(btn("৩. ক্যামেরা দিয়ে স্ক্যান (ঐচ্ছিক)") {
+            addView(actionCard("গ্যালারি / স্ক্রিনশট", "সেভ করা QR ছবি বেছে স্ক্যান", Color.WHITE, PURPLE, 0xFF6B7280.toInt(), BORDER) {
+                pickImage.launch("image/*")
+            })
+            addView(actionCard("ক্যামেরা (ঐচ্ছিক)", "অন্য কোথাও থাকা QR ক্যামেরায় ধরুন", Color.WHITE, PURPLE, 0xFF6B7280.toInt(), BORDER) {
                 cameraWanted = true
                 preview.visibility = View.VISIBLE
                 if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
                     startCamera()
                 else camPerm.launch(Manifest.permission.CAMERA)
             })
-            addView(preview, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+            addView(preview, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f).apply { topMargin = dp(12) })
         }
         setContentView(root)
 

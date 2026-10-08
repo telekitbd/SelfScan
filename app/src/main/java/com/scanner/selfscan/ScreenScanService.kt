@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -88,6 +90,8 @@ class ScreenScanService : Service() {
         val w = getSystemService(WINDOW_SERVICE) as WindowManager
         val b = Button(this).apply {
             text = "স্ক্যান"
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(0xFF4C1D95.toInt()); cornerRadius = 80f }
             setOnClickListener { scanFromOverlay() }
             setOnLongClickListener { cleanup(); stopSelf(); true }
         }
